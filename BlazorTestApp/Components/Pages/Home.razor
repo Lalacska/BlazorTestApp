@@ -1,0 +1,67 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Authorization;
+@* @attribute [Authorize(Policy = "AuthenticatedUser")] *@
+@inject AuthenticationStateProvider _authenticationStateProvider;
+
+<PageTitle>Home</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <h2>You are logged in</h2>
+        <button @onclick="CreateFile">Create File</button>
+    </Authorized>
+    <NotAuthorized>
+        <h2>You are not logged in</h2>
+    </NotAuthorized>
+</AuthorizeView>
+
+
+
+@code{
+    // Use un unit test...
+    public bool _isAuthenticated;
+
+    protected override async void OnInitialized()
+    {
+        var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        _isAuthenticated = user.Identity.IsAuthenticated;
+    }
+
+    // Use un unit test...
+    public async Task<bool> CreateFile()
+    {
+        try
+        {
+            // Get the path to the Files folder within the project's data directory
+            string filesFolderPath = Path.Combine( "Data", "Files");
+
+            // Ensure that the folder exists, create it if it doesn't
+            if (!Directory.Exists(filesFolderPath))
+            {
+                Directory.CreateDirectory(filesFolderPath);
+            }
+
+            // Generate a unique file name
+            string fileName = Guid.NewGuid().ToString() + ".txt";
+            var filePath = Path.Combine(filesFolderPath, fileName);
+
+            // Write some default content to the file
+            string fileContent = "This is a newly created file.";
+
+            // Write file content to server
+            System.IO.File.WriteAllText(filePath, fileContent);
+
+            Console.WriteLine("Created");
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            // Log the exception or handle it accordingly
+            Console.WriteLine(ex.Message);
+            return false;
+        }
+    }
+}
