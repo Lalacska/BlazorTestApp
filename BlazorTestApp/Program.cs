@@ -1,10 +1,12 @@
 using BlazorTestApp.Components;
 using BlazorTestApp.Components.Account;
 using BlazorTestApp.Data;
+using BlazorTestApp.Models;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Runtime.InteropServices;
+using System.Security.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,20 +26,26 @@ builder.Services.AddAuthentication(options =>
     })
     .AddIdentityCookies();
 
-if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-{
-    var connectionString = builder.Configuration.GetConnectionString("MockDbConnection") ?? throw new InvalidOperationException("Connection string 'MockDbConnection' not found.");
-    builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseSqlite(connectionString));
-}
-else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) 
-{
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-    builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseSqlServer(connectionString));
-}
+//if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+//{
+//    var connectionString = builder.Configuration.GetConnectionString("MockDbConnection") ?? throw new InvalidOperationException("Connection string 'MockDbConnection' not found.");
+//    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+//        options.UseSqlite(connectionString));
+//}
+//else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) 
+//{
+//    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+//    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+//        options.UseSqlServer(connectionString));
+//}
 
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(connectionString));
 
+var connectionString2 = builder.Configuration.GetConnectionString("TodoListConnection") ?? throw new InvalidOperationException("Connection string 'TodoListConnection' not found.");
+builder.Services.AddDbContext<TodoContext>(options =>
+    options.UseSqlite(connectionString2));
 
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
@@ -58,6 +66,15 @@ builder.Services.Configure<IdentityOptions>(options =>
     options.Password.RequireNonAlphanumeric = true;
     options.Password.RequiredLength = 8;
     options.Password.RequiredUniqueChars = 1;
+});
+
+builder.WebHost.UseKestrel((context, servertOptions) =>
+{
+    servertOptions.Configure(context.Configuration.GetSection("Kestrel"))
+        .Endpoint("HTTPS", listenOptions =>
+        {
+            listenOptions.HttpsOptions.SslProtocols = SslProtocols.Tls12;
+        });
 });
 
 builder.Services.AddAuthorization(options =>
