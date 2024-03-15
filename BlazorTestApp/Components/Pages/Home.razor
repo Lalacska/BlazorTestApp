@@ -1,15 +1,65 @@
 ﻿@page "/"
 @using Microsoft.AspNetCore.Authorization;
+@using Models;
 @* @attribute [Authorize(Policy = "AuthenticatedUser")] *@
+@* @attribute [Authorize(Policy = "Admin")] *@
 @inject AuthenticationStateProvider _authenticationStateProvider;
+@inject Models.TodoContext todoContext;
+@inject Code.HashingHandler hashingHandler;
+@inject Code.SymmetriskKrypteringHandler symmetriskKrypteringHandler;
+@inject Code.AsymmetriskKrypteringHandler asymmetriskKryperingHandler;
+@inject IServiceProvider _serviceProvider;
+
 
 <PageTitle>Home</PageTitle>
+
+<AuthorizeView Roles="Admin">
+    <Authorized>
+        <p>You are Admin</p>
+    </Authorized>
+</AuthorizeView>
 
 <AuthorizeView>
     <Authorized>
         <h1>You are logged in</h1>
-        <button @onclick="CreateFile">Create File</button>
-        <input>
+        @* <button @onclick="CreateFile">Create File</button> *@
+        <h2>Bruger: @userName</h2>
+        <h3>Cpr: @cprHashed</h3>
+        @if (!showList)
+        {
+            <input @bind="cprValue">
+            <button @onclick="btnSubmitCpr_onClick">Subtmit</button>
+            @if (buttonClicked)
+            {
+                @if (!isVerified)
+                {
+                    <p>Error: Verification failed.</p>
+                }
+            }
+        }
+        else
+        {
+            <input @bind="todoListValue" />
+            <button @onclick="btnSubmitItem_onClick" style="display: block;  margin: 10px; background-color: deepskyblue; color: white;">Subtmit</button>
+
+            <h3 style="border-bottom: 2px solid black; display: block; width: 100%; text-align: center;">Todo List</h3>
+            @if (todos != null && todos.Any())
+            {
+                @foreach (var todo in todos)
+                {
+                    <ul>
+                        <p style="display: inline">@asymmetriskKryperingHandler.Decrypt(todo.Item)</p>
+                        @if (isAdmin)
+                        {
+                            <button style ="margin: 10px; background-color: red; color: white;" @onclick="() => btnDeleteItems_onClick(todo.Id)">Delete</button>
+                        }
+                    
+                    </ul>
+                }
+            }
+
+
+        }
     </Authorized>
     <NotAuthorized>
         <h1>You are not logged in</h1>
@@ -21,18 +71,121 @@
 @code{
     // Use un unit test...
     public bool _isAuthenticated;
+    public string userName { get; set; }
+    public string cprHashed { get; set; }
 
-    protected override async void OnInitialized()
+    private List<Todolist> todos = new();
+
+    private string cprValue;
+    private string todoListValue;
+
+    private bool isVerified;
+    private bool showList = false;
+    private bool buttonClicked = false;
+    private int userId;
+    private bool isAdmin;
+
+    protected override async Task OnInitializedAsync()
     {
         var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
         _isAuthenticated = user.Identity.IsAuthenticated;
-        var brugerName = user.Identity.Name;
+        userName = user.Identity.Name;
 
-        string hashedString = new Code.HashingHandler().MDHashing("33333333");
-        string hashedString2 = new Code.HashingHandler().MDHashing("33333333");
-        bool matched = hashedString == hashedString2;
+        isAdmin = user.IsInRole("Admin");
+
+        // string hashedString = hashingHandler.MDHashing("33333333");
+        // string hashedString2 = hashingHandler.MDHashing("33333333");
+        // bool matched = hashedString == hashedString2;
+
+        // string encryptedValue = asymmetriskKryperingHandler.Encrypt("Hello World");
+        // string decryptedValue = asymmetriskKryperingHandler.Decrypt(encryptedValue);
+
+        // await Code.RoleHandler.CreateUserRole("test@gmail.com", "Admin", _serviceProvider);
+    }
+
+    private void btnSubmitCpr_onClick()
+    {
+        buttonClicked = true;
+        string hashedCpr = hashingHandler.BcryptHashing(cprValue);
+
+        Cpr user = todoContext.Cprs.FirstOrDefault(a => a.User == userName);
+        if (user == null)
+        {
+
+            // Create a new instance of the Cpr entity
+            var newCpr = new Cpr
+                {
+                    User = userName,
+                    CprNr = hashedCpr
+                };
+
+            // Add the newCpr to the DbSet
+            todoContext.Cprs.Add(newCpr);
+
+            // Save changes to the database
+            todoContext.SaveChanges();
+
+            userId = newCpr.Id;
+            isVerified = true;
+        }
+        else
+        {
+            isVerified = hashingHandler.BcryptVerify(cprValue, user.CprNr);
+        }
+
+        if (isVerified)
+        {
+            userId = user.Id;
+            cprHashed = user.CprNr;
+            showList = true;
+            // Refresh the todo list
+            fillToDoList();
+        }
+
+    }
+
+    private void btnSubmitItem_onClick()
+    {
+        string encryptedValue = asymmetriskKryperingHandler.Encrypt(todoListValue);
+
+        if (encryptedValue != null)
+        {
+            var newTodo = new Todolist
+                {
+                    Userid = userId,
+                    Item = encryptedValue,
+                };
+
+            // Add the newCpr to the DbSet
+            todoContext.Todolists.Add(newTodo);
+
+            // Save changes to the database
+            todoContext.SaveChanges();
+
+            todoListValue = string.Empty;
+
+            // Refresh the todo list
+            fillToDoList();
+        }
+
+    }
+
+    private void fillToDoList()
+    {
+        todos = todoContext.Todolists.ToList().Where(a => a.Userid == userId).ToList();
+    }
+
+    private void btnDeleteItems_onClick(int todoItemId)
+    {
+        var todoItemToDelete = todoContext.Todolists.FirstOrDefault(a => a.Id == todoItemId);
+        if (todoItemToDelete != null)
+        {
+            todoContext.Todolists.Remove(todoItemToDelete);
+            todoContext.SaveChanges();
+            fillToDoList();
+        }
     }
 
     // Use un unit test...

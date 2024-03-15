@@ -1,3 +1,4 @@
+using BlazorTestApp.Code;
 using BlazorTestApp.Components;
 using BlazorTestApp.Components.Account;
 using BlazorTestApp.Data;
@@ -18,6 +19,9 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityUserAccessor>();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
+builder.Services.AddSingleton<HashingHandler>();
+builder.Services.AddSingleton<SymmetriskKrypteringHandler>();
+builder.Services.AddSingleton<AsymmetriskKrypteringHandler>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -45,12 +49,13 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 var connectionString2 = builder.Configuration.GetConnectionString("TodoListConnection") ?? throw new InvalidOperationException("Connection string 'TodoListConnection' not found.");
 builder.Services.AddDbContext<TodoContext>(options =>
-    options.UseSqlite(connectionString2));
+    options.UseSqlServer(connectionString2));
 
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
+    .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddSignInManager()
     .AddDefaultTokenProviders();
@@ -82,8 +87,12 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AuthenticatedUser", policy =>{
         policy.RequireAuthenticatedUser();
     });
+    options.AddPolicy("RequireAdminRole", policy => {
+        policy.RequireRole("Admin");
+    });
 });
 
+builder.Services.AddDataProtection();
 
 var app = builder.Build();
 

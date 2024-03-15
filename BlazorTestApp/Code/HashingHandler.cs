@@ -15,6 +15,7 @@ namespace BlazorTestApp.Code
             return Convert.ToBase64String(hashedValues);
         }
 
+   
         public string SHAHasing(string textToHash) 
         {
             SHA256 md5 = SHA256.Create();
@@ -22,6 +23,7 @@ namespace BlazorTestApp.Code
             byte[] hashedValues = md5.ComputeHash(byteArrayTextToHash);
             return Convert.ToBase64String(hashedValues);
         }
+
 
         public string HMACHasing(string textToHash)
         {
@@ -52,15 +54,15 @@ namespace BlazorTestApp.Code
         {
             //return BCrypt.Net.BCrypt.HashPassword(textToHash);
 
-            //string salt = BCrypt.Net.BCrypt.GenerateSalt();
-            //return BCrypt.Net.BCrypt.HashPassword(textToHash, salt, true, BCrypt.Net.HashType.SHA256);
+            string salt = BCrypt.Net.BCrypt.GenerateSalt();
+            return BCrypt.Net.BCrypt.HashPassword(textToHash, salt, true, BCrypt.Net.HashType.SHA256);
 
-            return BCrypt.Net.BCrypt.HashPassword(textToHash, 10, true);
+            //return BCrypt.Net.BCrypt.HashPassword(textToHash, 10, true);
         }
 
         public bool BcryptVerify(string textToHash, string hashedValue)
         {
-            return BCrypt.Net.BCrypt.Verify(textToHash, hashedValue);
+            return BCrypt.Net.BCrypt.Verify(textToHash, hashedValue, true, BCrypt.Net.HashType.SHA256);
         }
     }
 }
